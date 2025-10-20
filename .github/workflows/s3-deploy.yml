@@ -1,0 +1,41 @@
+name: Deploy S3 Module
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy-s3:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./envs/dev  # change to prod when needed
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.6
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Initialize Terraform
+        run: terraform init
+
+      - name: Plan
+        run: terraform plan -target=module.s3
+
+      - name: Apply
+        run: terraform apply -target=module.s3 -auto-approve
+
+      - name: Push module outputs to S3
+        run: |
+          export OUTPUT_S3_BUCKET=tf-monitoring-output-dev
+          python3 ../../scripts/push_module_outputs.py

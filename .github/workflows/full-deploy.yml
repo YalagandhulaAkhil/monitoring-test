@@ -1,0 +1,20 @@
+name: Full Terraform Deployment
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    uses: ./.github/workflows/s3-deploy.yml
+  deploy_vpc:
+    needs: deploy
+    uses: ./.github/workflows/vpc-deploy.yml
+  deploy_iam:
+    needs: deploy_vpc
+    uses: ./.github/workflows/iam-deploy.yml
+  deploy_ec2:
+    needs: deploy_iam
+    uses: ./.github/workflows/ec2-deploy.yml
+  deploy_cloudwatch:
+    needs: deploy_ec2
+    uses: ./.github/workflows/cloudwatch-deploy.yml

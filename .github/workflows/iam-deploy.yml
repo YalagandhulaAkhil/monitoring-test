@@ -1,0 +1,39 @@
+name: Deploy IAM Module
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy-iam:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./envs/dev
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - run: terraform init
+
+      - name: Read S3 output bucket info
+        run: |
+          export OUTPUT_S3_BUCKET=tf-monitoring-output-dev
+          export OUTPUT_S3_KEY=module-outputs/latest.json
+          python3 ../../scripts/read_module_outputs.py
+
+      - name: Plan IAM
+        run: terraform plan -target=module.iam
+
+      - name: Apply IAM
+        run: terraform apply -target=module.iam -auto-approve
+
+      - name: Push outputs to S3
+        run: |
+          export OUTPUT_S3_BUCKET=tf-monitoring-output-dev
+          python3 ../../scripts/push_module_outputs.py
