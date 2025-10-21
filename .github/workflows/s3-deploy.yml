@@ -1,7 +1,7 @@
 name: Deploy S3 Module
 
 on:
-  workflow_dispatch:   # Manual trigger
+  workflow_dispatch:
 
 jobs:
   deploy-s3:
@@ -9,30 +9,28 @@ jobs:
 
     defaults:
       run:
-        # ✅ Adjust path if needed (this assumes your main.tf is in envs/dev/)
-        working-directory: ${{ github.workspace }}/envs/dev
+        # 👇 Fixed: matches your actual folder name 'environments'
+        working-directory: ${{ github.workspace }}/environments/dev
 
     steps:
-      # 🧾 Step 1: Checkout repository
+      # 1️⃣ Checkout repo
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 🧭 Step 2: Debug path (helps confirm correct working directory)
-      - name: Debug path and list files
+      # 2️⃣ Debug path
+      - name: Verify repository structure
         run: |
-          echo "GitHub workspace: $GITHUB_WORKSPACE"
-          echo "Current directory:"
+          echo "Workspace path: $GITHUB_WORKSPACE"
           pwd
-          echo "List of files:"
-          ls -R
+          ls -R $GITHUB_WORKSPACE
 
-      # ⚙️ Step 3: Setup Terraform CLI
+      # 3️⃣ Setup Terraform
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.6.6
 
-      # 🔑 Step 4: Configure AWS credentials (from GitHub Secrets)
+      # 4️⃣ Configure AWS credentials
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -40,30 +38,30 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
 
-      # 🏗️ Step 5: Initialize Terraform
+      # 5️⃣ Terraform Init
       - name: Terraform Init
         run: terraform init
 
-      # 🧩 Step 6: Validate Terraform files (optional but good practice)
+      # 6️⃣ Terraform Validate
       - name: Terraform Validate
         run: terraform validate
 
-      # 🪄 Step 7: Terraform Plan (target only S3 module)
+      # 7️⃣ Terraform Plan
       - name: Terraform Plan - S3 Module
         run: terraform plan -target=module.s3 -out=tfplan
 
-      # 🚀 Step 8: Terraform Apply (S3 module only)
+      # 8️⃣ Terraform Apply
       - name: Terraform Apply - S3 Module
         run: terraform apply -auto-approve -target=module.s3
 
-      # 🧠 Step 9: Push Terraform outputs to S3 for cross-module usage
+      # 9️⃣ Push Outputs to S3
       - name: Push module outputs to S3
         run: |
           export OUTPUT_S3_BUCKET=${{ secrets.OUTPUT_S3_BUCKET }}
-          echo "Pushing Terraform outputs to S3 bucket: $OUTPUT_S3_BUCKET"
+          echo "Pushing outputs to S3 bucket: $OUTPUT_S3_BUCKET"
           python3 ../../scripts/push_module_outputs.py
 
-      # ✅ Step 10: Verify upload success (list file in S3)
-      - name: Verify output upload
+      # 🔟 Verify Upload
+      - name: Verify upload
         run: |
           aws s3 ls s3://${{ secrets.OUTPUT_S3_BUCKET }}/module-outputs/ --recursive
