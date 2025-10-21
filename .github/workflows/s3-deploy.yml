@@ -7,30 +7,44 @@ jobs:
   deploy-s3:
     runs-on: ubuntu-latest
 
+    # ✅ Set all common environment variables from your GitHub Secrets
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+      OUTPUT_S3_BUCKET: ${{ secrets.OUTPUT_S3_BUCKET }}
+      OUTPUT_S3_KEY: ${{ secrets.OUTPUT_S3_KEY }}
+
+      TF_VAR_AWS_REGION: ${{ secrets.TF_VAR_AWS_REGION }}
+      TF_VAR_PROJECT: ${{ secrets.TF_VAR_PROJECT }}
+      TF_VAR_KEY_NAME: ${{ secrets.TF_VAR_KEY_NAME }}
+      TF_VAR_ALARM_TOPIC_ARN: ${{ secrets.TF_VAR_ALARM_TOPIC_ARN }}
+      TF_VAR_ENVIRONMENT: ${{ secrets.TF_VAR_ENVIRONMENT }}
+
     defaults:
       run:
-        # 👇 Fixed: matches your actual folder name 'environments'
+        # 👇 Folder where your dev environment main.tf is located
         working-directory: ${{ github.workspace }}/environments/dev
 
     steps:
-      # 1️⃣ Checkout repo
+      # 🧾 1️⃣ Checkout repository
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2️⃣ Debug path
+      # 🔍 2️⃣ Debug folder path (helpful once, keep for visibility)
       - name: Verify repository structure
         run: |
-          echo "Workspace path: $GITHUB_WORKSPACE"
+          echo "GitHub workspace: $GITHUB_WORKSPACE"
           pwd
           ls -R $GITHUB_WORKSPACE
 
-      # 3️⃣ Setup Terraform
+      # ⚙️ 3️⃣ Setup Terraform
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.6.6
 
-      # 4️⃣ Configure AWS credentials
+      # 🔑 4️⃣ Configure AWS credentials (for Terraform + AWS CLI)
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -38,30 +52,30 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
 
-      # 5️⃣ Terraform Init
+      # 🧩 5️⃣ Initialize Terraform
       - name: Terraform Init
         run: terraform init
 
-      # 6️⃣ Terraform Validate
+      # 🧪 6️⃣ Validate configuration
       - name: Terraform Validate
         run: terraform validate
 
-      # 7️⃣ Terraform Plan
+      # 📦 7️⃣ Plan only S3 module
       - name: Terraform Plan - S3 Module
         run: terraform plan -target=module.s3 -out=tfplan
 
-      # 8️⃣ Terraform Apply
+      # 🚀 8️⃣ Apply only S3 module
       - name: Terraform Apply - S3 Module
         run: terraform apply -auto-approve -target=module.s3
 
-      # 9️⃣ Push Outputs to S3
-      - name: Push module outputs to S3
+      # 📤 9️⃣ Push Terraform outputs to your output S3 bucket
+      - name: Push Terraform Outputs to S3
         run: |
-          export OUTPUT_S3_BUCKET=${{ secrets.OUTPUT_S3_BUCKET }}
-          echo "Pushing outputs to S3 bucket: $OUTPUT_S3_BUCKET"
+          echo "Pushing Terraform outputs to S3 bucket: $OUTPUT_S3_BUCKET"
           python3 ../../scripts/push_module_outputs.py
 
-      # 🔟 Verify Upload
-      - name: Verify upload
+      # ✅ 🔟 Verify upload
+      - name: Verify Upload in S3
         run: |
-          aws s3 ls s3://${{ secrets.OUTPUT_S3_BUCKET }}/module-outputs/ --recursive
+          echo "Listing output files from S3:"
+          aws s3 ls s3://$OUTPUT_S3_BUCKET/module-outputs/ --recursive
