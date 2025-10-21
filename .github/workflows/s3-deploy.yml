@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: envs/dev
+        working-directory: ${{ github.workspace }}/envs/dev
 
     steps:
       - name: Checkout repository
